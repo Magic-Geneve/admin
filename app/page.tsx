@@ -115,13 +115,6 @@ export default function CaisseApp() {
     {
       id: "draft",
       name: "Draft",
-      memberPrice: 15,
-      nonMemberPrice: 17,
-      managementPrice: 0,
-    },
-    {
-      id: "draft-ff",
-      name: "Draft Final Fantasy",
       memberPrice: 16,
       nonMemberPrice: 19,
       managementPrice: 0,
@@ -179,6 +172,8 @@ export default function CaisseApp() {
 
   // Ajouter un état pour le popup de vérification des paiements
   const [paymentVerificationPopup, setPaymentVerificationPopup] = useState<boolean>(false)
+
+  const [editingMember, setEditingMember] = useState<{ id: string; name: string } | null>(null)
 
   // Normaliser les noms pour la comparaison
   const normalizeName = (name: string): string => {
@@ -365,6 +360,26 @@ export default function CaisseApp() {
     setMembers((prev) => prev.filter((member) => member.id !== id))
   }
 
+  // Commencer l'édition d'un membre
+  const startEditingMember = (member: Member) => {
+    setEditingMember({ id: member.id, name: member.name })
+  }
+
+  // Sauvegarder les modifications d'un membre
+  const saveEditingMember = () => {
+    if (!editingMember) return
+
+    setMembers((prev) =>
+      prev.map((member) => (member.id === editingMember.id ? { ...member, name: editingMember.name.trim() } : member)),
+    )
+    setEditingMember(null)
+  }
+
+  // Annuler l'édition d'un membre
+  const cancelEditingMember = () => {
+    setEditingMember(null)
+  }
+
   // Calculer le résumé des paiements
   const calculatePaymentSummary = (): PaymentSummary => {
     const participantsSummary = participants
@@ -542,7 +557,6 @@ export default function CaisseApp() {
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             <h1 className="text-4xl font-bold mb-2">Caisse Magic Genève</h1>
           </div>
-          <p className="text-gray-600 text-lg">Gestion des encaissements et des membres</p>
           <div className="w-24 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 mx-auto mt-4 rounded-full"></div>
         </div>
 
@@ -574,12 +588,6 @@ export default function CaisseApp() {
           <TabsContent value="caisse" className="space-y-6">
             {/* Sélection du format et ajout de participants */}
             <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  Ajouter des Participants
-                </CardTitle>
-              </CardHeader>
               <CardContent className="space-y-4 p-6">
                 <div>
                   <Label className="text-gray-700 font-medium">Format de jeu</Label>
@@ -775,15 +783,8 @@ export default function CaisseApp() {
           </TabsContent>
 
           <TabsContent value="membres" className="space-y-6">
-            {/* Ajouter un membre */}
             <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  Ajouter un Membre
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-6 border-b border-gray-200">
                 <div className="flex gap-3">
                   <Input
                     placeholder="Nom du nouveau membre"
@@ -802,39 +803,81 @@ export default function CaisseApp() {
                   </Button>
                 </div>
               </CardContent>
-            </Card>
 
-            {/* Liste des membres */}
-            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Liste des Membres ({members.length})
-                </CardTitle>
-              </CardHeader>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
                   {members.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200"
+                      className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">{member.name}</span>
-                        {isManagementAuthorized(member.name) && (
-                          <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-xs">
-                            Gestion
-                          </Badge>
+                      <div className="flex items-center gap-2 flex-1">
+                        {editingMember?.id === member.id ? (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              value={editingMember.name}
+                              onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
+                              onKeyPress={(e) => {
+                                if (e.key === "Enter") saveEditingMember()
+                                if (e.key === "Escape") cancelEditingMember()
+                              }}
+                              className="text-sm border-blue-300 focus:border-blue-500 focus:ring-blue-500"
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              onClick={saveEditingMember}
+                              disabled={!editingMember.name.trim()}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 h-9"
+                            >
+                              ✓ Sauvegarder
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEditingMember}
+                              className="border-gray-300 text-gray-600 hover:bg-gray-50 px-3 py-2 h-9 bg-transparent"
+                            >
+                              ✕ Annuler
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-sm font-medium text-gray-900 flex-1">{member.name}</span>
+                            {isManagementAuthorized(member.name) && (
+                              <Badge
+                                variant="outline"
+                                className="border-purple-300 text-purple-700 bg-purple-50 text-xs"
+                              >
+                                Gestion
+                              </Badge>
+                            )}
+                          </>
                         )}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeMember(member.id)}
-                        className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+
+                      {editingMember?.id !== member.id && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startEditingMember(member)}
+                            className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 px-3 py-2"
+                            title="Modifier le membre"
+                          >
+                            ✏️ Modifier
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeMember(member.id)}
+                            className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 px-3 py-2"
+                            title="Supprimer le membre"
+                          >
+                            🗑️ Supprimer
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
