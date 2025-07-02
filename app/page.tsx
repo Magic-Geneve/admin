@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Plus, Download, Users, Calculator, Settings } from "lucide-react"
+import { Trash2, Plus, Download, Users, Calculator, Settings, Lock } from "lucide-react"
 
 // Types
 interface GameFormat {
@@ -105,10 +107,88 @@ const managementAuthorizedMembers = [
   "mark schwass",
 ]
 
+// Composant de connexion
+function LoginForm({ onLogin }: { onLogin: () => void }) {
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (username === "MagicGenève" && password === "Magiccomit") {
+      onLogin()
+      setError("")
+    } else {
+      setError("Nom d'utilisateur ou mot de passe incorrect")
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
+        <CardHeader className="text-center pb-6">
+          <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-white" />
+          </div>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Connexion
+          </CardTitle>
+          <p className="text-gray-600 mt-2">Accès à la Caisse Magic Genève</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Label htmlFor="username" className="text-gray-700 font-medium">
+                Nom d'utilisateur
+              </Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="mt-2 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Entrez votre nom d'utilisateur"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="password" className="text-gray-700 font-medium">
+                Mot de passe
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-2 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Entrez votre mot de passe"
+                required
+              />
+            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-600 text-sm font-medium">{error}</p>
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              Se connecter
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function CaisseApp() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [members, setMembers] = useState<Member[]>(initialMembers)
   const [participants, setParticipants] = useState<Participant[]>([])
-  const [selectedFormat, setSelectedFormat] = useState<string>("draft") // Updated default value
+  const [selectedFormat, setSelectedFormat] = useState<string>("draft")
   const [participantsList, setParticipantsList] = useState<string>("")
   const [newMemberName, setNewMemberName] = useState<string>("")
   const [gameFormats, setGameFormats] = useState<GameFormat[]>([
@@ -170,10 +250,13 @@ export default function CaisseApp() {
     }>
   >([])
 
-  // Ajouter un état pour le popup de vérification des paiements
   const [paymentVerificationPopup, setPaymentVerificationPopup] = useState<boolean>(false)
-
   const [editingMember, setEditingMember] = useState<{ id: string; name: string } | null>(null)
+
+  // Si pas connecté, afficher le formulaire de connexion
+  if (!isLoggedIn) {
+    return <LoginForm onLogin={() => setIsLoggedIn(true)} />
+  }
 
   // Normaliser les noms pour la comparaison
   const normalizeName = (name: string): string => {
@@ -195,7 +278,7 @@ export default function CaisseApp() {
   const calculateManagementPrice = (memberPrice: number): number => {
     const totalParticipants = participants.length
     const managementPrice = memberPrice - totalParticipants
-    return Math.max(0, managementPrice) // Ne pas avoir de prix négatif
+    return Math.max(0, managementPrice)
   }
 
   // Ajouter des participants depuis la liste collée
@@ -218,7 +301,7 @@ export default function CaisseApp() {
         name,
         isMember: memberStatus,
         format: format.name,
-        paymentMethod: "" as any, // Pas de mode de paiement par défaut
+        paymentMethod: "" as any,
         price: basePrice,
       }
     })
@@ -236,13 +319,11 @@ export default function CaisseApp() {
   const updatePaymentMethod = (index: number, paymentMethod: "cash" | "twint" | "gestion" | "") => {
     const participant = participants[index]
 
-    // Vérifier si le mode "gestion" est autorisé pour ce participant
     if (paymentMethod === "gestion" && (!participant.isMember || !isManagementAuthorized(participant.name))) {
       alert("Le mode de paiement 'gestion' est réservé aux membres autorisés uniquement.")
       return
     }
 
-    // Show membership popup for non-members when payment method is selected (except gestion)
     if (!participant.isMember && paymentMethod !== "" && paymentMethod !== "none" && paymentMethod !== "gestion") {
       setMembershipPopup({
         show: true,
@@ -282,14 +363,12 @@ export default function CaisseApp() {
 
     const { participantIndex, participantName } = membershipPopup
 
-    // Add to members list
     const newMember: Member = {
       id: Date.now().toString(),
       name: participantName,
     }
     setMembers((prev) => [...prev, newMember])
 
-    // Add membership transaction details
     setMembershipTransactions((prev) => [
       ...prev,
       {
@@ -299,10 +378,8 @@ export default function CaisseApp() {
       },
     ])
 
-    // Get the original payment method that was selected for the participant
     const originalPaymentMethod = participants[participantIndex]?.paymentMethod || ""
 
-    // Update participant status and payment - keep original payment method
     setParticipants((prev) =>
       prev.map((participant, i) => {
         if (i === participantIndex) {
@@ -312,7 +389,7 @@ export default function CaisseApp() {
           return {
             ...participant,
             isMember: true,
-            paymentMethod: originalPaymentMethod, // Keep the original payment method
+            paymentMethod: originalPaymentMethod,
             price: memberPrice,
           }
         }
@@ -329,7 +406,6 @@ export default function CaisseApp() {
 
     const { participantIndex } = membershipPopup
 
-    // Just update payment method without membership - keep the original payment method
     setParticipants((prev) =>
       prev.map((participant, i) => {
         if (i === participantIndex) {
@@ -383,7 +459,7 @@ export default function CaisseApp() {
   // Calculer le résumé des paiements
   const calculatePaymentSummary = (): PaymentSummary => {
     const participantsSummary = participants
-      .filter((p) => p.paymentMethod !== "") // Ignorer les participants sans mode de paiement
+      .filter((p) => p.paymentMethod !== "")
       .reduce(
         (acc, participant) => {
           acc[
@@ -395,7 +471,6 @@ export default function CaisseApp() {
         { cash: 0, twint: 0, gestion: 0, membershipCash: 0, membershipTwint: 0, total: 0 },
       )
 
-    // Ajouter les cotisations par mode de paiement
     const membershipSummary = membershipTransactions.reduce(
       (acc, transaction) => {
         if (transaction.paymentMethod === "cash") {
@@ -419,7 +494,6 @@ export default function CaisseApp() {
 
   // Modifier la fonction exportToPDF pour vérifier les paiements avant l'export
   const exportToPDF = () => {
-    // Vérifier si tous les participants ont un mode de paiement sélectionné
     const participantsWithoutPayment = participants.filter((p) => p.paymentMethod === "" || p.paymentMethod === "none")
 
     if (participantsWithoutPayment.length > 0) {
@@ -427,7 +501,6 @@ export default function CaisseApp() {
       return
     }
 
-    // Continuer avec l'export normal si tous les paiements sont sélectionnés
     proceedWithExport()
   }
 
@@ -436,7 +509,6 @@ export default function CaisseApp() {
     const summary = calculatePaymentSummary()
     const date = new Date().toLocaleDateString("fr-CH")
 
-    // Créer le contenu HTML pour le PDF
     const content = `
     <!DOCTYPE html>
     <html>
@@ -536,7 +608,6 @@ export default function CaisseApp() {
     </html>
   `
 
-    // Créer et télécharger le PDF
     const blob = new Blob([content], { type: "text/html" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
